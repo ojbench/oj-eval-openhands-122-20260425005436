@@ -6,6 +6,7 @@
 #include <vector>
 #include <stdexcept>
 #include <unordered_map>
+#include <algorithm>
 
 #include "event.h"
 
