@@ -35,7 +35,7 @@ class Memo {
 
     if (auto nb = dynamic_cast<const NotifyBeforeEvent *>(event)) {
       int pre_t = d - nb->GetNotifyTime() + 1;
-      if (pre_t >= 1 && pre_t < d && pre_t <= duration_) {
+      if (pre_t >= 1 && pre_t <= duration_) {
         schedule_[pre_t].push_back({event, 0});
       }
       return;
