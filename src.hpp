@@ -5,10 +5,10 @@
 #include <string>
 #include <vector>
 #include <stdexcept>
+#include <unordered_map>
 
 #include "event.h"
 
-// Implement CustomNotifyLateEvent::GetNotification as specified
 inline std::string CustomNotifyLateEvent::GetNotification(int n) const {
   std::string base = NotifyLateEvent::GetNotification(n);
   return base + (generator_ ? generator_(n) : std::string());
@@ -20,58 +20,53 @@ class Memo {
   explicit Memo(int duration) : duration_(duration), cur_time_(0) {}
   ~Memo() = default;
 
-  void AddEvent(const Event *event) { events_.push_back(event); }
+  void AddEvent(const Event *event) {
+    if (!event) return;
+    // Schedule notifications within [1, duration_]
+    int d = event->GetDeadline();
+    if (d >= 1 && d <= duration_) {
+      if (dynamic_cast<const NotifyBeforeEvent *>(event)) {
+        schedule_[d].push_back({event, 1});
+      } else {
+        schedule_[d].push_back({event, 0});
+      }
+    }
 
-  // Advance one hour and emit notifications for that hour
+    if (auto nb = dynamic_cast<const NotifyBeforeEvent *>(event)) {
+      int pre_t = d - nb->GetNotifyTime() + 1;
+      if (pre_t >= 1 && pre_t <= duration_) {
+        schedule_[pre_t].push_back({event, 0});
+      }
+      return;
+    }
+
+    if (auto nl = dynamic_cast<const NotifyLateEvent *>(event)) {
+      int freq = nl->GetFrequency();
+      if (freq > 0) {
+        for (int t = d + freq, n = 1; t <= duration_; t += freq, ++n) {
+          schedule_[t].push_back({event, n});
+        }
+      }
+    }
+  }
+
   void Tick() {
     if (cur_time_ >= duration_) return;
     ++cur_time_;
-
-    for (const Event *ev : events_) {
+    auto it = schedule_.find(cur_time_);
+    if (it == schedule_.end()) return;
+    for (auto &p : it->second) {
+      const Event *ev = p.first;
+      int n = p.second;
       if (!ev || ev->IsComplete()) continue;
-
-      int t = cur_time_;
-      int d = ev->GetDeadline();
-
-      // Deadline notifications
-      if (t == d) {
-        if (auto nb = dynamic_cast<const NotifyBeforeEvent *>(ev)) {
-          std::cout << nb->GetNotification(1) << '\n';
-          continue;
-        }
-        std::cout << ev->GetNotification(0) << '\n';
-        continue;
-      }
-
-      // Pre-notify for NotifyBeforeEvent at time (deadline - notify_time + 1)
-      if (auto nb = dynamic_cast<const NotifyBeforeEvent *>(ev)) {
-        int pre_t = d - nb->GetNotifyTime() + 1;
-        if (t == pre_t) {
-          std::cout << nb->GetNotification(0) << '\n';
-        }
-        continue;
-      }
-
-      // Late notifications for NotifyLateEvent and CustomNotifyLateEvent
-      if (t > d) {
-        if (auto nl = dynamic_cast<const NotifyLateEvent *>(ev)) {
-          int freq = nl->GetFrequency();
-          if (freq > 0) {
-            int delta = t - d;
-            if (delta % freq == 0) {
-              int n = delta / freq;  // n >= 1 here
-              std::cout << nl->GetNotification(n) << '\n';
-            }
-          }
-        }
-      }
+      std::cout << ev->GetNotification(n) << '\n';
     }
   }
 
  private:
   int duration_;
   int cur_time_;
-  std::vector<const Event *> events_;
+  std::unordered_map<int, std::vector<std::pair<const Event *, int>>> schedule_;
 };
 
 #endif // SRC_HPP
