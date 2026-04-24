@@ -1,0 +1,10 @@
+# Binaries
+a.out
+*.out
+*.o
+
+# Local test files
+build_test.cpp
+
+# Others
+*.log
