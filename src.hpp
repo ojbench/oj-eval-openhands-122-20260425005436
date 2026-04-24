@@ -55,7 +55,16 @@ class Memo {
     ++cur_time_;
     auto it = schedule_.find(cur_time_);
     if (it == schedule_.end()) return;
-    for (auto &p : it->second) {
+    auto &vec = it->second;
+    auto priority = [](const Event *ev, int n) {
+      if (dynamic_cast<const NotifyBeforeEvent *>(ev) && n == 0) return 0; // pre-notify
+      if (dynamic_cast<const NotifyLateEvent *>(ev) && n > 0) return 2;    // late
+      return 1; // deadlines for normal (n=0) and NB (n=1)
+    };
+    stable_sort(vec.begin(), vec.end(), [&](const auto &a, const auto &b){
+      return priority(a.first, a.second) < priority(b.first, b.second);
+    });
+    for (auto &p : vec) {
       const Event *ev = p.first;
       int n = p.second;
       if (!ev || ev->IsComplete()) continue;
