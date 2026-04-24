@@ -75,6 +75,14 @@ class Memo {
       return 2;
     };
     stable_sort(vec.begin(), vec.end(), [&](const auto &a, const auto &b){
+      if (a.first == b.first) {
+        if (dynamic_cast<const NotifyBeforeEvent *>(a.first)) {
+          // For the same NB event at the same tick, place deadline (n==1) before pre-notify (n==0)
+          if (a.second != b.second) {
+            return a.second > b.second; // 1 before 0
+          }
+        }
+      }
       return priority(a.first, a.second) < priority(b.first, b.second);
     });
     for (auto &p : vec) {
