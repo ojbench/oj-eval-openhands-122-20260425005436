@@ -58,9 +58,19 @@ class Memo {
     if (it == schedule_.end()) return;
     auto &vec = it->second;
     auto priority = [](const Event *ev, int n) {
-      if (dynamic_cast<const NotifyBeforeEvent *>(ev) && n == 0) return 0; // pre-notify
-      if (dynamic_cast<const NotifyLateEvent *>(ev) && n > 0) return 2;    // late
-      return 1; // deadlines for normal (n=0) and NB (n=1)
+      // 0: pre-notify (NB with n==0)
+      // 1: deadlines (normal and notify-late with n==0, or NB with n==1)
+      // 2: late (notify-late with n>0)
+      if (dynamic_cast<const NotifyBeforeEvent *>(ev)) {
+        if (n == 0) return 0; // NB pre-notify first
+        if (n == 1) return 1; // NB deadline next
+      }
+      if (dynamic_cast<const NotifyLateEvent *>(ev)) {
+        if (n == 0) return 1; // NL deadline among deadlines
+        if (n > 0) return 2;  // late reminders last
+      }
+      // NormalEvent deadline (n==0)
+      return 1;
     };
     stable_sort(vec.begin(), vec.end(), [&](const auto &a, const auto &b){
       return priority(a.first, a.second) < priority(b.first, b.second);
